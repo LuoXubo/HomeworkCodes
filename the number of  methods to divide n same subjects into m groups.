@@ -1,0 +1,33 @@
+//The number of  methods to divide n same subjects into m groups.
+#include <bits/stdc++.h>
+using namespace std;
+oonst int maxn=105;
+
+int n,m;
+int dp[maxn][maxn];
+// dp[i][j] = divide j same subjects into i groups
+void solve()
+{
+    dp[0][0]=1;
+    for(int i=1;i<=m;i++)
+    {
+        for(int j=0;j<=n;j++)
+        {
+            if(j-i>=0)
+            {
+                dp[i][j] = dp[i-1][j]+dp[i][j-i];
+            }
+            else
+            {
+                dp[i][j] = dp[i-1][j];
+            }
+        }
+    }
+    printf("%d\n",dp[m][n]);
+}
+int main()
+{
+    scanf("%d %d",&n,&m);
+    solve();
+    return 0;
+}
