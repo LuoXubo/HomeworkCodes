@@ -63,8 +63,8 @@ struct Game
     Lexicon alreadyPlayed;
 };
 
-void welcome();
-void giveInstructions();
+static void welcome();
+static void giveInstructions();
 void playBoggle();
 static bool responseIsAffirmative(const string &prompt);
 void chooseBoard(Game &g);
@@ -104,7 +104,7 @@ int main() {
  * Print out a cheery welcome message.
  */
 
-void welcome() {
+static void welcome() {
    cout << "Welcome!  You're about to play an intense game ";
    cout << "of mind-numbing Boggle.  The good news is that ";
    cout << "you might improve your vocabulary a bit.  The ";
@@ -120,7 +120,7 @@ void welcome() {
  * Print out the instructions for the user.
  */
 
-void giveInstructions() {
+static void giveInstructions() {
    cout << endl;
    cout << "The boggle board is a grid onto which I ";
    cout << "I will randomly distribute cubes. These ";
@@ -149,7 +149,7 @@ void playBoggle() {
     //  [TODO: Fill and extend code here]
 
     GWindow gw(BOGGLE_WINDOW_WIDTH, BOGGLE_WINDOW_HEIGHT);
-    gw.setLocation(50,50);
+    //gw.setLocation(50,50);
     initGBoggle(gw);
     Game g;
     g.english = Lexicon(kEnglishLexicon);
@@ -351,6 +351,7 @@ bool canBeFormed(Game &g, Cube c, string input)
     for(Direction dir = Northwest; dir <= West; dir=Direction(dir+1))
     {
         Cube nextCube = adjacentCube(g,dir,c.row,c.col);
+        //深度搜索
         if(!nextCube.flag && canBeFormed(g,nextCube,str))
         {
             (g.board[c.row][c.col]).flag = false;
@@ -366,14 +367,14 @@ Cube adjacentCube(Game &g, Direction &dir, int row, int col)
     Cube c2 = g.board[row][col];
     int maxRow = (g.board).numRows() - 1;
     int maxCol = (g.board).numCols() - 1;
-
+    // 向八个方向搜索
     switch (dir) {
     case Northwest:
         if(row != 0 && col != 0)
             c2 = g.board[row-1][col-1];break;
     case North:
         if(row!=0)
-            c2 = g.board[row-1][col-1];break;
+            c2 = g.board[row-1][col];break;
     case Northeast:
         if(row!=0 && col!=maxCol)
             c2 = g.board[row-1][col+1];break;
@@ -382,7 +383,7 @@ Cube adjacentCube(Game &g, Direction &dir, int row, int col)
             c2 = g.board[row][col+1];break;
     case Southeast:
         if(row!=maxRow&& col!=maxCol)
-            c2 = g.board[row+1][col=1];break;
+            c2 = g.board[row+1][col+1];break;
     case South:
         if(row!=maxRow)
             c2 = g.board[row+1][col];break;
