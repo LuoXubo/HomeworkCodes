@@ -10,8 +10,6 @@
 #include <cctype>
 #include <fstream>
 #include <iostream>
-#include <cmath>
-#include "strlib.h"
 #include "gboggle.h"
 #include "grid.h"
 #include "gwindow.h"
@@ -25,69 +23,59 @@ using namespace std;
 
 const int BOGGLE_WINDOW_WIDTH = 650;
 const int BOGGLE_WINDOW_HEIGHT = 350;
-const int kStandardNumOfCubes = 16;
-const int kBigBoogleNumOfCubes = 25;
 const int kPauseTime = 50;
-const string STANDARD_CUBES_FIlE = "cubes16.txt";
-const string BIG_BOGGLE_CUBES_FILE = "cubes25.txt";
-const string kEnglishLexicon = "EnglishWords.dat";
-const string kStandardCubes[16] = {
-    "AAEEGN","ABBJOO","ACHOPS","AFFKPS",
-    "AOOTTW","CIMOTU","DEILRX","DELRVY",
-    "DISTTY","EEGHNW","EEINSU","EHRTVW",
-    "EIOSST","ELRTTY","HIMNOU","HLNNRZ"
+string STANDARD_CUBES_FIlE = "cubes16.txt";
+string BIG_BOGGLE_CUBES_FILE = "cubes25.txt";
+string EnglishLexicon =  "EnglishWords.txt";
+enum Direction {
+  Northwest, North, Northeast, East, Southeast, South, Southwest, West
 };
-const string kBigBoggleCubes[25] = {
-  "AAAFRS", "AAEEEE", "AAFIRS", "ADENNN", "AEEEEM",
-  "AEEGMU", "AEGMNN", "AFIRSY", "BJKQXZ", "CCNSTW",
-  "CEIILT", "CEILPT", "CEIPST", "DDLNOR", "DDHNOT",
-  "DHHLOR", "DHLNOR", "EIIITT", "EMOTTT", "ENSSSU",
-  "FIPRSY", "GORRVW", "HIPRRY", "NOOTUW", "OOOTTU"
-};
-enum Direction{
-    Northwest, North, Northeast, East, Southeast, South, Southwest, West
-};
-
-/* Function prototypes */
-struct Cube
+string kStandardCubes[16];
+string kBigBoggleCubes[25];
+struct Cube // for dice
 {
     bool flag;
     char letter;
     int row;
     int col;
 };
-struct Game
+struct Game // for board
 {
     Grid<Cube> board;
     Lexicon english;
     Lexicon alreadyPlayed;
 };
 
-static void welcome();
-static void giveInstructions();
+/* Function prototypes */
+
+void welcome();
+void giveInstructions();
 void playBoggle();
-static bool responseIsAffirmative(const string &prompt);
+Grid<Cube> shuffle(int numOfRowsCols);
 void chooseBoard(Game &g);
 void customBoardConfig(Game &g, int numOfCubes);
 void autoBoardConfig(Game &g, int numOfCubes);
-Grid<Cube> shuffleCubes(int numOfCubes);
-void humanTurn(Game &g);
+void humanturn(Game &g);
+void computerTurn(Game &g);
 bool isLegal(Game &g, string input);
 bool canBeFormed(Game &g, Cube c, string input);
-Cube adjacentCube(Game &g, Direction &dir, int row, int col);
 void highlightCubes(Game &g);
 void clearAllHighlights(Game &g);
-void computerTurn(Game &g);
+Cube adjacentCube(Game &g, Direction &dir, int row, int col);
 void compCanBeFormed(Game &g, Cube c, Player player, string word);
-bool compLegalWord(Game &g, string word);
 bool inSameLocation(Cube c1, Cube c2);
+bool compLegalWord(Game &g, string word);
 /* Main program */
 
 // You need to design specific data structures and functions
 // to complete this assignment.
 
 int main() {
-
+    fstream infile1("cubes16.txt"),infile2("cubes25.txt");
+    for(int i=0;i<16;i++)
+        infile1 >> kStandardCubes[i];
+    for(int i=0;i<25;i++)
+        infile2 >> kBigBoggleCubes[i];
     welcome();
     if (getYesOrNo("Do you need instructions? ")) {
        giveInstructions();
@@ -104,7 +92,7 @@ int main() {
  * Print out a cheery welcome message.
  */
 
-static void welcome() {
+void welcome() {
    cout << "Welcome!  You're about to play an intense game ";
    cout << "of mind-numbing Boggle.  The good news is that ";
    cout << "you might improve your vocabulary a bit.  The ";
@@ -120,7 +108,7 @@ static void welcome() {
  * Print out the instructions for the user.
  */
 
-static void giveInstructions() {
+void giveInstructions() {
    cout << endl;
    cout << "The boggle board is a grid onto which I ";
    cout << "I will randomly distribute cubes. These ";
@@ -149,174 +137,135 @@ void playBoggle() {
     //  [TODO: Fill and extend code here]
 
     GWindow gw(BOGGLE_WINDOW_WIDTH, BOGGLE_WINDOW_HEIGHT);
-    //gw.setLocation(50,50);
+    gw.setLocation(50,50);
     initGBoggle(gw);
-    Game g;
-    g.english = Lexicon(kEnglishLexicon);
+
     while (true) {
+        Game g;
+        g.english = Lexicon(EnglishLexicon);
         chooseBoard(g);
-        humanTurn(g);
+        humanturn(g);
         computerTurn(g);
         if (!getYesOrNo("Would you like to play again? ")) break;
     }
-    cout << "Thanks for your enjoy! Hit return to quit." << endl;
+
     exitGraphics();
 }
-static bool responseIsAffirmative(const string &prompt)
-{
-    while(true)
-    {
-        string ans = getLine(prompt);
-        if(!ans.empty())
-        {
-            switch (toupper(ans[0])) {
-                case 'Y': return true;
-                case 'N': return false;
-            }
-        }
-        cout << "Please answer yes or no." << endl;
-    }
-}
-
 void chooseBoard(Game &g)
 {
-    cout << "You can choose standard Boogle (4 x 4 grid) or Big Boggle (5 x 5)." << endl;
+    int num;
+    cout << "Would you want play the 4x4 board(S) or 5x5(B) board?" << endl;
+    char op;
+    cin >> op;
+    if(op=='S' || op=='s')
+        num = 4;
+    else
+        num = 5;
+    drawBoard(num,num);
+    cout << "Would you like to set up the board by yourself or not?" << endl;
     string ans;
-    int numOfCubes;
-    if(responseIsAffirmative("Would you like Big Boggle?"))
-        numOfCubes = kBigBoogleNumOfCubes;
+    cin >> ans;
+    if(toupper(ans[0])=='Y')
+        customBoardConfig(g,num);
     else
-        numOfCubes = kStandardNumOfCubes;
-    drawBoard(sqrt((double)numOfCubes), sqrt((double)numOfCubes));
-    cout << endl;
-    cout << "I will give you a chance to set up the board to ";
-    cout << "your specification, which makes it easier to confirm";
-    cout << "your boggle program is working." << endl;
-    if(responseIsAffirmative("Do you want to force the board configuration? "))
-        customBoardConfig(g,numOfCubes);
-    else
-        autoBoardConfig(g, numOfCubes);
-
+        autoBoardConfig(g,num);
 }
-void customBoardConfig(Game &g, int numOfCubes)
+void customBoardConfig(Game &g, int numofRowsCols)
 {
     cout << endl;
-    cout << "Enter a" << numOfCubes << "-character string";
-    cout << "identify which letters you want on the cubes. " << endl;
-    cout << "The first 4 letters are the cubes on the top row ";
-    cout << "from left to right, the next 4 letter are the second ";
-    cout << "row, and so on." << endl;
-    cout << "Enter the string: ";
-    string userInputLetters;
-    while(true)
+    cout << "Enter " << numofRowsCols << " " << numofRowsCols << "-strings(Please input the Upper case)" << endl;
+
+    string userInput[numofRowsCols];
+    for(int i=0;i<numofRowsCols;i++)
+        cin >> userInput[i];
+    Grid<Cube> cubes(numofRowsCols,numofRowsCols);
+    for(int i=0;i<numofRowsCols;i++)
     {
-        userInputLetters = getLine();
-        if(userInputLetters.length() >= numOfCubes)
-            break;
-        cout << "String must include " << numOfCubes << " characters!";
-        cout << " Try again: ";
-    }
-    int numRowCols = sqrt((double)numOfCubes);
-    Grid<Cube> cubes(numRowCols, numRowCols);
-    int numSide = 0;
-    for(int row = 0; row<numRowCols; row++)
-    {
-        for(int col = 0; col < numRowCols; col ++ )
+        for(int j=0;j<numofRowsCols;j++)
         {
-            char letter = userInputLetters[numSide];
-            labelCube(row, col, letter);
-            Cube cube = {false, letter, row, col};
-            cubes[row][col] = cube;
-            numSide++;
+            char letter = userInput[i][j];
+            labelCube(i,j,letter);
+            Cube cube = {false, letter, i, j};
+            cubes[i][j] = cube;
         }
     }
     g.board = cubes;
-}
 
-void autoBoardConfig(Game &g, int numOfCubes)
+}
+void autoBoardConfig(Game &g, int numOfRowsCols)
 {
-    Grid<Cube> cubes = shuffleCubes(numOfCubes);
+    Grid<Cube> cubes = shuffle(numOfRowsCols);
     g.board = cubes;
-    for(int row = 0; row < cubes.numRows(); row++)
+    for(int i=0;i<numOfRowsCols;i++)
     {
-        for(int col = 0; col < cubes.numCols(); col++)
+        for(int j=0;j<numOfRowsCols;j++)
         {
-            char letter = cubes[row][col].letter;
-            labelCube(row, col, letter);
+            char letter = cubes[i][j].letter;
+            labelCube(i,j,letter);
         }
     }
 }
-Grid<Cube> shuffleCubes(int numOfCubes)
+Grid<Cube> shuffle(int numOfRowsCols)
 {
-    int numRowCols = sqrt((double)numOfCubes);
     Vector<string> vec;
-    for(int n = 0; n < numOfCubes; n ++)
+    while(vec.size()<numOfRowsCols)
     {
-        if(numOfCubes == kBigBoogleNumOfCubes)
-            vec.add(kBigBoggleCubes[n]);
-        if(numOfCubes==kStandardNumOfCubes)
-            vec.add(kStandardCubes[n]);
+        int index = randomInteger(0,numOfRowsCols*numOfRowsCols-1);
+        if(vec.contains(kStandardCubes[index]))
+            continue;
+        else
+            vec.add(kStandardCubes[index]);
     }
-    for(int i=0;i<vec.size();i++)
+    for(int i=0;i<numOfRowsCols;i++)
     {
-        int r = randomInteger(i,numOfCubes - 1);
-        swap(vec[i],vec[r]);
-    }
-    int numSide = 0;
-    Grid<string> cubeLetters(numRowCols, numRowCols);
-    Grid<Cube> finalCubes(cubeLetters.numRows(), cubeLetters.numCols());
-    for(int row = 0; row < cubeLetters.numRows(); row++)
-    {
-        for(int col = 0; col < cubeLetters.numCols(); col++)
+        for(int j=0;j<numOfRowsCols;j++)
         {
-            cubeLetters[row][col] = vec[numSide];
-            string side = cubeLetters[row][col];
-            char letter = side[randomInteger(0,5)];
-            Cube cube = {false, letter, row, col};
-            finalCubes[row][col] = cube;
-            numSide++;
+            int index = randomInteger(0,numOfRowsCols-1);
+            swap(vec[i][j],vec[i][index]);
         }
     }
-    return finalCubes;
+    Grid<Cube> ans(numOfRowsCols,numOfRowsCols);
+    for(int i=0;i<numOfRowsCols;i++)
+        for(int j=0;j<numOfRowsCols;j++)
+        {
+            ans[i][j].row = i;
+            ans[i][j].col = j;
+            ans[i][j].flag = false;
+            ans[i][j].letter = vec[i][j];
+        }
+    return ans;
 }
-
-void humanTurn(Game &g)
+void humanturn(Game &g)
 {
-    cout << endl;
-    cout << "Ok, take all the time you want and find all ";
-    cout << "the words you can! Signal that you're finished ";
-    cout << "by entering an empty line." << endl << endl;
-
     Player player = HUMAN;
-    string input;
-
+    cout << "Please enter the words in the table you can find:(input -1 to exit)" << endl;
     while(true)
     {
-        cout << "Enter a word: ";
-        input = getLine();
-        if(input == "")
+        string input;
+        cin >> input;
+        if(input=="-1")
             break;
         input = toUpperCase(input);
         foreach(Cube c, g.board)
         {
             c.flag = false;
             highlightCube(c.row, c.col, false);
-
         }
         if(input.length()<4)
-            cout << "That word does not meet the minimum word length of 4 character. " << endl;
-        else if(!(g.english).contains((input)))
+            cout << "The word's length is at least 4" << endl;
+        else if(!(g.english).contains(input))
             cout << "That is not a word!" << endl;
         else if((g.alreadyPlayed).contains(input))
-                cout << "You have already gussed that!" << endl;
-        else if(!isLegal(g, input))
+            cout << "The word has been chosen!" << endl;
+        else if(!isLegal(g,input))
             cout << "You can not make that word!" << endl;
         else
         {
+            cout << "Congratulations! You got one correct word!" << endl;
             g.alreadyPlayed.add(input);
-            recordWordForPlayer(input, player);
-        }
+            recordWordForPlayer(input,player);
 
+        }
     }
 }
 
@@ -326,13 +275,10 @@ bool isLegal(Game &g, string input)
     if((g.english).containsPrefix(prefix))
     {
         foreach(Cube c, g.board)
-        {
             if(canBeFormed(g,c,input))
                 return true;
-        }
     }
     return false;
-
 }
 bool canBeFormed(Game &g, Cube c, string input)
 {
@@ -340,7 +286,7 @@ bool canBeFormed(Game &g, Cube c, string input)
         return false;
     (g.board[c.row][c.col]).flag = true;
     string str = input.substr(1);
-    if(str.length()==0)
+    if(str.length()==0) //basecase，递归终点
     {
         highlightCubes(g);
         pause(kPauseTime);
@@ -348,10 +294,9 @@ bool canBeFormed(Game &g, Cube c, string input)
         (g.board[c.row][c.col]).flag = false;
         return true;
     }
-    for(Direction dir = Northwest; dir <= West; dir=Direction(dir+1))
+    for(Direction dir = Northwest; dir<=West;dir=Direction(dir+1))
     {
         Cube nextCube = adjacentCube(g,dir,c.row,c.col);
-        //深度搜索
         if(!nextCube.flag && canBeFormed(g,nextCube,str))
         {
             (g.board[c.row][c.col]).flag = false;
@@ -361,45 +306,31 @@ bool canBeFormed(Game &g, Cube c, string input)
     (g.board[c.row][c.col]).flag = false;
     return false;
 }
-
 Cube adjacentCube(Game &g, Direction &dir, int row, int col)
 {
     Cube c2 = g.board[row][col];
-    int maxRow = (g.board).numRows() - 1;
-    int maxCol = (g.board).numCols() - 1;
-    // 向八个方向搜索
-    switch (dir) {
-    case Northwest:
-        if(row != 0 && col != 0)
-            c2 = g.board[row-1][col-1];break;
-    case North:
-        if(row!=0)
-            c2 = g.board[row-1][col];break;
-    case Northeast:
-        if(row!=0 && col!=maxCol)
-            c2 = g.board[row-1][col+1];break;
-    case East:
-        if(col != maxCol)
-            c2 = g.board[row][col+1];break;
-    case Southeast:
-        if(row!=maxRow&& col!=maxCol)
-            c2 = g.board[row+1][col+1];break;
-    case South:
-        if(row!=maxRow)
-            c2 = g.board[row+1][col];break;
-    case Southwest:
-        if(row!=maxRow && col != 0)
-                    c2 = g.board[row+1][col-1];break;
-    case West:
-        if(col!=0)
-                    c2 = g.board[row][col-1];break;
-
-    }
-    return c2;
+    int maxRow = (g.board).numRows()-1;
+    int maxCol = (g.board).numCols()-1;
+    switch(dir) {
+        case Northwest:
+            if(row != 0 && col != 0) c2 = g.board[row-1][col-1]; break;
+        case North:
+            if(row != 0) c2 = g.board[row-1][col]; break;
+        case Northeast:
+            if(row != 0 && col != maxCol) c2 = g.board[row-1][col+1]; break;
+        case East:
+            if(col != maxCol) c2 = g.board[row][col+1]; break;
+        case Southeast:
+            if(row != maxRow && col != maxCol) c2 = g.board[row+1][col+1]; break;
+        case South:
+            if(row != maxRow) c2 = g.board[row+1][col]; break;
+        case Southwest:
+            if(row != maxRow && col != 0) c2 = g.board[row+1][col-1]; break;
+        case West:
+            if(col != 0) c2 = g.board[row][col-1]; break;
+      }
+      return c2;
 }
-
-
-
 void highlightCubes(Game &g)
 {
     foreach(Cube c, g.board)
@@ -423,10 +354,10 @@ void computerTurn(Game &g)
     {
         string word(1,c.letter);
         (g.board[c.row][c.col]).flag = true;
-        highlightCube(c.row, c.col, true);
+        highlightCube(c.row,c.col,true);
         compCanBeFormed(g,c,player,word);
         (g.board[c.row][c.col]).flag = false;
-        highlightCube(c.row, c.col, false);
+        highlightCube(c.row, c.col,false);
     }
 }
 void compCanBeFormed(Game &g, Cube c, Player player, string word)
@@ -437,21 +368,21 @@ void compCanBeFormed(Game &g, Cube c, Player player, string word)
         recordWordForPlayer(word,player);
         highlightCube(c.row,c.col,true);
         pause(kPauseTime);
-        highlightCube(c.row,c.col,false);
+        highlightCube(c.row, c.col, false);
     }
-    for(Direction dir = Northwest; dir <= West; dir = Direction(dir + 1))
+    for(Direction dir = Northwest; dir<=West; dir=Direction(dir+1))
     {
-        Cube nextCube = adjacentCube(g, dir, c.row, c.col);
-        string str = word + nextCube.letter;
-        if(!nextCube.flag && (g.english).containsPrefix(str) && !(g.alreadyPlayed).contains(str) && !inSameLocation(nextCube,c))
+        Cube nextCube = adjacentCube(g,dir,c.row,c.col);
+        string str = word+nextCube.letter;
+        if(!nextCube.flag && (g.english).containsPrefix(str) && !(g.alreadyPlayed).contains(str) && !inSameLocation(c,nextCube))
         {
             (g.board[nextCube.row][nextCube.col]).flag = true;
-            highlightCube(c.row,c.col,true);
+            highlightCube(c.row, c.col, true);
             word = str;
-            compCanBeFormed(g, nextCube, player, word);
+            compCanBeFormed(g,nextCube,player, word);
             word = word.substr(0,word.length()-1);
             (g.board[c.row][c.col]).flag = false;
-            highlightCube(c.row, c.col, false);
+            highlightCube(c.row,c.col,false);
         }
     }
 }
@@ -459,10 +390,7 @@ bool compLegalWord(Game &g, string word)
 {
     return (word.length()>=4 && (g.english).contains(word) && !(g.alreadyPlayed).contains(word));
 }
-
 bool inSameLocation(Cube c1, Cube c2)
 {
-    return ((c1.row==c2.row) && (c1.col==c2.col));
+    return (c1.row==c2.row && c1.col==c2.col);
 }
-
-
